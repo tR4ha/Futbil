@@ -148,6 +148,7 @@ export async function searchPlayers(query: string) {
     .from("players")
     .select("id, name")
     .ilike("search_name", `%${cleanQuery}%`)
+    .order("is_active", { ascending: false })
     .order("name")
     .limit(8);
 

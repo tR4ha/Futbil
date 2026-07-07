@@ -33,6 +33,8 @@ export default function PlayerPick({ room }: { room: any }) {
   const [roomPlayerId, setRoomPlayerId] = useState<string>("");
   const [timeLeft, setTimeLeft] = useState(20);
   const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<"success" | "error" | "info">("info");
 
   const currentPlayer = room.room_players.find(
     (player: any) => player.id === roomPlayerId
@@ -126,6 +128,7 @@ useEffect(() => {
 
   finishDrawRound();
 }, [timeLeft, isHost, roundId, room.id]);
+
     
 useEffect(() => {
   async function loadSuggestions() {
@@ -143,13 +146,23 @@ useEffect(() => {
 }, [answer]);
 
   async function handleSubmitAnswer() {
+  setMessage("");
+
   if (!answer.trim()) {
-    alert("Cevap yaz.");
+    setMessage("Cevap yaz.");
+    setMessageType("error");
     return;
   }
 
   if (!roundId) {
-    alert("Round bulunamadı.");
+    setMessage("Round bulunamadı.");
+    setMessageType("error");
+    return;
+  }
+
+  if (!roomPlayerId) {
+    setMessage("Oyuncu bilgisi bulunamadı.");
+    setMessageType("error");
     return;
   }
 
@@ -163,145 +176,162 @@ useEffect(() => {
     .single();
 
   if (currentRoundError || !currentRound) {
-    alert("Round bulunamadı.");
+    setMessage("Round bulunamadı.");
+    setMessageType("error");
     return;
   }
 
   if (currentRound.status === "finished") {
-    alert(`Round bitti. Kazanan: ${currentRound.winner_nickname}`);
+    setMessage(
+      currentRound.winner_nickname
+        ? `Round bitti. Kazanan: ${currentRound.winner_nickname}`
+        : "Round bitti. Berabere."
+    );
+    setMessageType("info");
     return;
   }
 
   const player = await findPlayer(normalizedAnswer);
 
-if (!player) {
-  alert("Bu futbolcu veritabanında yok.");
-  return;
-}
+  if (!player) {
+    setMessage("Bu futbolcu veritabanında yok.");
+    setMessageType("error");
+    return;
+  }
 
   const teamIds = picks.map((pick: any) => pick.team_id);
 
   if (teamIds.length < 2) {
-    alert("Takımlar bulunamadı.");
+    setMessage("Takımlar bulunamadı.");
+    setMessageType("error");
     return;
   }
 
-  const isCorrect = await validatePlayer(
-  player.id,
-  teamIds
-);
+  const isCorrect = await validatePlayer(player.id, teamIds);
 
   await saveAnswer({
-  roundId,
-  roomPlayerId,
-  nickname,
-  answer: normalizedAnswer,
-});
+    roundId,
+    roomPlayerId,
+    nickname,
+    answer: normalizedAnswer,
+  });
 
   if (!isCorrect) {
-    alert("Yanlış cevap.");
+    setMessage("Yanlış cevap.");
+    setMessageType("error");
     setSubmitted(true);
     return;
   }
 
   await finishRound({
-  roundId,
-  roomPlayerId,
-  nickname,
-  answer: normalizedAnswer,
-});
-const currentPlayer = room.room_players.find(
-  (player: any) => player.id === roomPlayerId
-);
+    roundId,
+    roomPlayerId,
+    nickname,
+    answer: normalizedAnswer,
+  });
 
-await increaseScore({
-  roomId: room.id,
-  isHost: currentPlayer?.is_host === true,
-});
+  const currentPlayer = room.room_players.find(
+    (player: any) => player.id === roomPlayerId
+  );
 
-  alert("Doğru cevap! Round kazandın.");
+  await increaseScore({
+    roomId: room.id,
+    isHost: currentPlayer?.is_host === true,
+  });
+
+  setMessage("Doğru cevap! Round kazandın.");
+  setMessageType("success");
   setSubmitted(true);
 }
 
   return (
-    <div className="mt-8 text-center">
-      <p className="text-sm font-semibold uppercase tracking-wider text-emerald-400">
-        Round {room.round_number}
+  <div className="mt-8 text-center">
+    <p className="text-sm font-semibold uppercase tracking-wider text-emerald-400">
+      Round {room.round_number}
+    </p>
+
+    <h2 className="mt-3 text-2xl font-bold">Ortak Futbolcuyu Bul</h2>
+
+    <div className="mt-4 text-center">
+      <p className="text-sm text-slate-400">Kalan Süre</p>
+
+      <p
+        className={`text-5xl font-bold ${
+          timeLeft <= 5 ? "text-red-500" : "text-emerald-400"
+        }`}
+      >
+        {timeLeft}
       </p>
+    </div>
 
-      <h2 className="mt-3 text-2xl font-bold">Ortak Futbolcuyu Bul</h2>
-      <div className="mt-4 text-center">
-
-        <p className="text-sm text-slate-400">Kalan Süre</p>
-
-        <p
-
-            className={`text-5xl font-bold ${
-
-            timeLeft <= 5 ? "text-red-500" : "text-emerald-400"
-
-            }`}
-
-        >
-
-            {timeLeft}
-
-        </p>
-
-        </div>
-      <div className="mt-6 grid grid-cols-2 gap-3">
-        {picks.map((pick) => (
-          <div key={pick.id} className="rounded-xl bg-black/30 px-4 py-5">
-            <p className="text-xs text-slate-400">
-              {pick.room_players.is_host ? "Host" : "Guest"}
-            </p>
-            <p className="mt-2 text-lg font-bold text-emerald-400">
-              {pick.teams.name}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      {submitted ? (
-        <div className="mt-6 rounded-xl bg-black/30 px-4 py-4">
-          <p className="text-emerald-400 font-semibold">Cevap gönderildi.</p>
-          <p className="mt-2 text-sm text-slate-400">
-            Sonraki adımda doğru cevap kontrolünü ekleyeceğiz.
+    <div className="mt-6 grid grid-cols-2 gap-3">
+      {picks.map((pick) => (
+        <div key={pick.id} className="rounded-xl bg-black/30 px-4 py-5">
+          <p className="text-xs text-slate-400">
+            {pick.room_players.is_host ? "Host" : "Guest"}
+          </p>
+          <p className="mt-2 text-lg font-bold text-emerald-400">
+            {pick.teams.name}
           </p>
         </div>
-      ) : (
-        <>
-          <input
-            className="mt-6 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none focus:border-emerald-400"
-            placeholder="Futbolcu adı yaz..."
-            value={answer}
-            onChange={(e) => setAnswer(e.target.value)}
-          />
-            {suggestions.length > 0 && (
-            <div className="mt-2 max-h-56 overflow-y-auto rounded-xl border border-white/10 bg-black/80">
-                {suggestions.map((player) => (
-                <button
-                    key={player.id}
-                    type="button"
-                    onClick={() => {
-                    setAnswer(player.name);
-                    setSuggestions([]);
-                    }}
-                    className="block w-full border-b border-white/5 px-4 py-3 text-left hover:bg-white/10"
-                >
-                    {player.name}
-                </button>
-                ))}
-            </div>
-            )}
-          <button
-            onClick={handleSubmitAnswer}
-            className="mt-4 w-full rounded-xl bg-emerald-500 px-4 py-3 font-semibold text-black transition hover:bg-emerald-400"
-          >
-            Cevapla
-          </button>
-        </>
-      )}
+      ))}
     </div>
-  );
+
+    {message && (
+      <div
+        className={`mt-4 rounded-xl px-4 py-3 text-sm font-semibold ${
+          messageType === "success"
+            ? "bg-emerald-500/20 text-emerald-300"
+            : messageType === "error"
+            ? "bg-red-500/20 text-red-300"
+            : "bg-blue-500/20 text-blue-300"
+        }`}
+      >
+        {message}
+      </div>
+    )}
+
+    {submitted ? (
+      <div className="mt-6 rounded-xl bg-black/30 px-4 py-4">
+        <p className="text-slate-300 font-semibold">
+          Cevap gönderildi.
+        </p>
+      </div>
+    ) : (
+      <>
+        <input
+          className="mt-6 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none focus:border-emerald-400"
+          placeholder="Futbolcu adı yaz..."
+          value={answer}
+          onChange={(e) => setAnswer(e.target.value)}
+        />
+
+        {suggestions.length > 0 && (
+          <div className="mt-2 max-h-56 overflow-y-auto rounded-xl border border-white/10 bg-black/80">
+            {suggestions.map((player) => (
+              <button
+                key={player.id}
+                type="button"
+                onClick={() => {
+                  setAnswer(player.name);
+                  setSuggestions([]);
+                }}
+                className="block w-full border-b border-white/5 px-4 py-3 text-left hover:bg-white/10"
+              >
+                {player.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <button
+          onClick={handleSubmitAnswer}
+          className="mt-4 w-full rounded-xl bg-emerald-500 px-4 py-3 font-semibold text-black transition hover:bg-emerald-400"
+        >
+          Cevapla
+        </button>
+      </>
+    )}
+  </div>
+);
 }
