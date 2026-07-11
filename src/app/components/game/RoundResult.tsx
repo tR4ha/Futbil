@@ -45,16 +45,33 @@ export default function RoundResult({ room }: { room: any }) {
   useEffect(() => {
     if (!isHost) return;
 
-    const timer = setTimeout(async () => {
-      if (room.host_score >= 2 || room.guest_score >= 2) {
-        await supabase
-          .from("rooms")
-          .update({ game_state: "match_result" })
-          .eq("id", room.id);
+   const timer = setTimeout(async () => {
 
-        return;
-      }
+  const winsNeeded = Math.ceil((room.best_of ?? 3) / 2);
 
+  if (
+
+    room.host_score >= winsNeeded ||
+
+    room.guest_score >= winsNeeded
+
+  ) {
+
+    await supabase
+
+      .from("rooms")
+
+      .update({
+
+        game_state: "match_result",
+
+      })
+
+      .eq("id", room.id);
+
+    return;
+
+  }
       const nextRound = room.round_number + 1;
 
       const { error: roundError } = await supabase.from("rounds").upsert(

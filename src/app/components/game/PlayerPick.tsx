@@ -35,6 +35,7 @@ export default function PlayerPick({ room }: { room: any }) {
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error" | "info">("info");
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
 
   const currentPlayer = room.room_players.find(
     (player: any) => player.id === roomPlayerId
@@ -132,18 +133,22 @@ useEffect(() => {
     
 useEffect(() => {
   async function loadSuggestions() {
+    if (selectedPlayerId) {
+      setSuggestions([]);
+      return;
+    }
+
     if (answer.trim().length < 2) {
       setSuggestions([]);
       return;
     }
 
     const players = await searchPlayers(answer);
-
     setSuggestions(players);
   }
 
   loadSuggestions();
-}, [answer]);
+}, [answer, selectedPlayerId]);
 
   async function handleSubmitAnswer() {
   setMessage("");
@@ -303,7 +308,10 @@ useEffect(() => {
           className="mt-6 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none focus:border-emerald-400"
           placeholder="Futbolcu adı yaz..."
           value={answer}
-          onChange={(e) => setAnswer(e.target.value)}
+          onChange={(event) => {
+  setAnswer(event.target.value);
+  setSelectedPlayerId(null);
+}}
         />
 
         {suggestions.length > 0 && (
@@ -313,6 +321,7 @@ useEffect(() => {
                 key={player.id}
                 type="button"
                 onClick={() => {
+                  setSelectedPlayerId(player.id);
                   setAnswer(player.name);
                   setSuggestions([]);
                 }}

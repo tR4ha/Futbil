@@ -1,10 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 export default function MatchResult({ room }: { room: any }) {
-  const host = room.room_players?.find((p: any) => p.is_host);
-  const guest = room.room_players?.find((p: any) => !p.is_host);
+  const [restarting, setRestarting] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const host = room.room_players?.find((player: any) => player.is_host);
+  const guest = room.room_players?.find((player: any) => !player.is_host);
 
   const localPlayerId =
     typeof window !== "undefined"
@@ -13,31 +17,25 @@ export default function MatchResult({ room }: { room: any }) {
 
   const isHost = host?.player_uuid === localPlayerId;
 
-  const hostWon = room.host_score >= 2;
+  const hostWon = room.host_score > room.guest_score;
   const winner = hostWon ? host : guest;
 
   async function restartMatch() {
-    const { error } = await supabase
-      .from("rooms")
-      .update({
-        game_state: "team_pick",
-        round_number: 1,
-        host_score: 0,
-        guest_score: 0,
-        round_ends_at: null,
-      })
-      .eq("id", room.id);
+    if (!isHost || !localPlayerId || restarting) return;
+
+    setRestarting(true);
+    setMessage("");
+
+    const { error } = await supabase.rpc("restart_match", {
+      p_room_id: room.id,
+      p_player_uuid: localPlayerId,
+    });
 
     if (error) {
-      console.error(error.message);
-      return;
+      console.error("Restart match error:", error.message);
+      setMessage("Maç yeniden başlatılamadı.");
+      setRestarting(false);
     }
-
-    await supabase.from("rounds").insert({
-      room_id: room.id,
-      round_number: 1,
-      status: "active",
-    });
   }
 
   return (
@@ -52,26 +50,40 @@ export default function MatchResult({ room }: { room: any }) {
 
       <div className="mt-6 grid grid-cols-2 gap-3">
         <div className="rounded-xl bg-black/30 px-4 py-5">
-          <p className="text-xs text-slate-400">{host?.nickname || "Host"}</p>
+          <p className="text-xs text-slate-400">
+            {host?.nickname || "Host"}
+          </p>
+
           <p className="mt-2 text-4xl font-bold text-emerald-400">
             {room.host_score}
           </p>
         </div>
 
         <div className="rounded-xl bg-black/30 px-4 py-5">
-          <p className="text-xs text-slate-400">{guest?.nickname || "Guest"}</p>
+          <p className="text-xs text-slate-400">
+            {guest?.nickname || "Guest"}
+          </p>
+
           <p className="mt-2 text-4xl font-bold text-blue-400">
             {room.guest_score}
           </p>
         </div>
       </div>
 
+      {message && (
+        <div className="mt-4 rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-300">
+          {message}
+        </div>
+      )}
+
       {isHost ? (
         <button
+          type="button"
           onClick={restartMatch}
-          className="mt-6 w-full rounded-xl bg-emerald-500 px-4 py-3 font-semibold text-black transition hover:bg-emerald-400"
+          disabled={restarting}
+          className="mt-6 w-full rounded-xl bg-emerald-500 px-4 py-3 font-semibold text-black transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Yeniden Başla
+          {restarting ? "Başlatılıyor..." : "Yeniden Başla"}
         </button>
       ) : (
         <p className="mt-6 rounded-xl bg-black/30 px-4 py-3 text-sm text-slate-300">
