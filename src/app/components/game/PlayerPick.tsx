@@ -29,6 +29,7 @@ type Pick = {
 type PlayerSuggestion = {
   id: string;
   name: string;
+  image_url: string | null;
 };
 
 type MessageType = "success" | "error" | "info";
@@ -441,18 +442,34 @@ export default function PlayerPick({ room }: { room: any }) {
             <div className="mt-2 max-h-56 overflow-y-auto rounded-xl border border-white/10 bg-black/90">
               {suggestions.map((player) => (
                 <button
-                  key={player.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedPlayerId(player.id);
-                    setAnswer(player.name);
-                    setSuggestions([]);
-                    setMessage("");
-                  }}
-                  className="block w-full border-b border-white/5 px-4 py-3 text-left transition last:border-b-0 hover:bg-white/10"
-                >
-                  {player.name}
-                </button>
+  key={player.id}
+  type="button"
+  onClick={() => {
+    setSelectedPlayerId(player.id);
+    setAnswer(player.name);
+    setSuggestions([]);
+    setMessage("");
+  }}
+  className="block w-full border-b border-white/5 px-4 py-3 text-left transition last:border-b-0 hover:bg-white/10"
+>
+  <div className="flex items-center gap-3">
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/10">
+      {player.image_url ? (
+        <img
+          src={player.image_url}
+          alt={player.name}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <span>👤</span>
+      )}
+    </div>
+
+    <span className="font-semibold">
+      {player.name}
+    </span>
+  </div>
+</button>
               ))}
             </div>
           )}

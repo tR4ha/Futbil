@@ -40,17 +40,6 @@ export async function getRoundPicks(roundId: string) {
 
   return data ?? [];
 }
-export async function findPlayer(name: string) {
-  const { data, error } = await supabase
-    .from("players")
-    .select("*")
-    .ilike("name", name)
-    .single();
-
-  if (error) return null;
-
-  return data;
-}
 
 export async function validatePlayer(
   playerId: string,
@@ -150,7 +139,7 @@ export async function searchPlayers(query: string) {
 
   const { data, error } = await supabase
     .from("players")
-    .select("id, name")
+    .select("id, name, image_url")
     .ilike("search_name", `%${cleanQuery}%`)
     .order("is_active", { ascending: false })
     .order("name")

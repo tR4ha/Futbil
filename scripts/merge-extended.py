@@ -135,7 +135,19 @@ for row in read_csv(PROFILES_FILE):
     if not player_id or not name:
         continue
 
+    extended_image_url = (
+        row.get("player_image_url")
+        or ""
+    ).strip()
+
     if player_id in players_by_id:
+    # İlk datasette fotoğraf yoksa extended fotoğrafı kullan.
+        if (
+            not players_by_id[player_id].get("image_url")
+            and extended_image_url
+        ):
+            players_by_id[player_id]["image_url"] = extended_image_url
+
         continue
 
     current_club = (
@@ -162,6 +174,7 @@ for row in read_csv(PROFILES_FILE):
         "is_active": (
             "true" if is_active else "false"
         ),
+        "image_url": extended_image_url,     
     }
 
 print(
@@ -420,6 +433,7 @@ write_csv(
         "search_name",
         "country",
         "is_active",
+        "image_url",
     ],
     player_rows,
 )

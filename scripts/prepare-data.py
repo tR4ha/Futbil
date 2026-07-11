@@ -85,6 +85,7 @@ with open(
             "search_name",
             "country",
             "is_active",
+            "image_url",
         ],
     )
 
@@ -117,6 +118,7 @@ with open(
                 if max_season and last_season_number == max_season
                 else "false"
             ),
+            "image_url": (row.get("image_url") or "").strip(),
         })
 
 
