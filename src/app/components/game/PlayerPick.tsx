@@ -95,7 +95,18 @@ export default function PlayerPick({ room }: { room: any }) {
         setRoundId(round.id);
 
         const data = await getRoundPicks(round.id);
-        setPicks((data || []) as Pick[]);
+        const formattedPicks: Pick[] = (data || []).map((pick: any) => ({
+  id: pick.id,
+  team_id: pick.team_id,
+  teams: Array.isArray(pick.teams)
+    ? pick.teams[0]
+    : pick.teams,
+  room_players: Array.isArray(pick.room_players)
+    ? pick.room_players[0]
+    : pick.room_players,
+}));
+
+setPicks(formattedPicks);
       } catch (error) {
         console.error("Round data fetch error:", error);
         setMessage("Round bilgileri yüklenemedi.");
@@ -308,18 +319,25 @@ export default function PlayerPick({ room }: { room: any }) {
         setSubmitted(true);
         return;
       }
+const finishedRound = await finishRound({
+  roundId,
+  roomPlayerId,
+  playerId: selectedPlayerId,
+  nickname,
+  answer: normalizedAnswer,
+});
 
-      await finishRound({
-        roundId,
-        roomPlayerId,
-        nickname,
-        answer: normalizedAnswer,
-      });
+if (!finishedRound) {
+  setMessage("Rakibin senden önce doğru cevap verdi.");
+  setMessageType("info");
+  setSubmitted(true);
+  return;
+}
 
-      await increaseScore({
-        roomId: room.id,
-        isHost: currentPlayer?.is_host === true,
-      });
+await increaseScore({
+  roomId: room.id,
+  isHost: currentPlayer?.is_host === true,
+});
 
       setMessage("Doğru cevap! Round kazandın.");
       setMessageType("success");

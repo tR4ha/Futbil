@@ -1,9 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { supabase } from "@/lib/supabase";
 import useRoom from "@/hooks/useRoom";
 import GameRenderer from "@/app/components/game/GameRenderer";
+import ScoreBoard from "@/app/components/game/ScoreBoard";
 
 type Player = {
   id: string;
@@ -20,6 +26,8 @@ type Room = {
   round_number: number;
   host_score: number;
   guest_score: number;
+  best_of: number;
+  round_ends_at: string | null;
   room_players: Player[];
 };
 
@@ -30,6 +38,21 @@ type Props = {
 export default function RoomClient({ initialRoom }: Props) {
   const [room, setRoom] = useState<Room>(initialRoom);
   const [countdown, setCountdown] = useState<number | null>(null);
+
+  const startingGameRef = useRef(false);
+
+  const localPlayerUuid =
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("futbil_player_id")
+      : null;
+
+  const hostPlayer = room.room_players?.find(
+    (player) => player.is_host
+  );
+
+  const isHost =
+    Boolean(localPlayerUuid) &&
+    hostPlayer?.player_uuid === localPlayerUuid;
 
   const refreshRoom = useCallback(async () => {
     const { data, error } = await supabase
@@ -42,7 +65,10 @@ export default function RoomClient({ initialRoom }: Props) {
       .single();
 
     if (error) {
-      console.error("Room refresh error:", error.message);
+      console.error(
+        "Room refresh error:",
+        error.message
+      );
       return;
     }
 
@@ -54,77 +80,131 @@ export default function RoomClient({ initialRoom }: Props) {
   useRoom(room.id, refreshRoom);
 
   useEffect(() => {
-    if (room.room_players.length >= 2 && room.game_state === "waiting" && countdown === null) {
+    const hasTwoPlayers =
+      room.room_players?.length >= 2;
+
+    if (
+      hasTwoPlayers &&
+      room.game_state === "waiting" &&
+      countdown === null
+    ) {
       setCountdown(3);
     }
-  }, [room.room_players.length, room.game_state, countdown]);
+
+    if (room.game_state !== "waiting") {
+      setCountdown(null);
+      startingGameRef.current = false;
+    }
+  }, [
+    room.room_players?.length,
+    room.game_state,
+    countdown,
+  ]);
 
   useEffect(() => {
     if (countdown === null) return;
 
     if (countdown === 0) {
+      if (!isHost) return;
+      if (startingGameRef.current) return;
+
+      startingGameRef.current = true;
+
       async function startGame() {
-        const { error: roundError } = await supabase.from("rounds").upsert(
-          {
-            room_id: room.id,
-            round_number: room.round_number,
-          },
-          {
-            onConflict: "room_id,round_number",
-          }
-        );
+        const { error: roundError } = await supabase
+          .from("rounds")
+          .upsert(
+            {
+              room_id: room.id,
+              round_number: room.round_number,
+              status: "active",
+            },
+            {
+              onConflict: "room_id,round_number",
+            }
+          );
 
         if (roundError) {
-          console.error("Round create error:", roundError.message);
-          alert(roundError.message);
+          console.error(
+            "Round create error:",
+            roundError.message
+          );
+          startingGameRef.current = false;
           return;
         }
 
         const { error: roomError } = await supabase
           .from("rooms")
-          .update({ game_state: "team_pick" })
-          .eq("id", room.id);
+          .update({
+            game_state: "team_pick",
+            round_ends_at: null,
+          })
+          .eq("id", room.id)
+          .eq("game_state", "waiting");
 
         if (roomError) {
-          console.error("Game state update error:", roomError.message);
-          alert(roomError.message);
-          return;
+          console.error(
+            "Game state update error:",
+            roomError.message
+          );
+          startingGameRef.current = false;
         }
-
-        console.log("Game state updated to team_pick");
       }
 
       startGame();
       return;
     }
 
-    const timer = setTimeout(() => {
-      setCountdown((prev) => (prev === null ? null : prev - 1));
+    const timer = window.setTimeout(() => {
+      setCountdown((previous) => {
+        if (previous === null) return null;
+        return Math.max(0, previous - 1);
+      });
     }, 1000);
 
-    return () => clearTimeout(timer);
-  }, [countdown, room.id, room.round_number]);
+    return () => window.clearTimeout(timer);
+  }, [
+    countdown,
+    isHost,
+    room.id,
+    room.round_number,
+  ]);
 
   const rendererState =
-    room.game_state === "waiting" && countdown !== null
+    room.game_state === "waiting" &&
+    countdown !== null
       ? "countdown"
       : room.game_state;
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-6">
+    <main className="flex min-h-screen items-center justify-center px-6 py-10">
       <section className="w-full max-w-md rounded-3xl border border-white/10 bg-white/10 p-8 shadow-2xl backdrop-blur">
         <div className="text-center">
-          <h1 className="text-4xl font-bold">⚽ FutBil</h1>
+          <h1 className="text-4xl font-bold">
+            ⚽ FutBil
+          </h1>
+
           <p className="mt-2 text-sm text-slate-300">
-            Share this room code with your friend
+            Oda kodunu arkadaşınla paylaş
           </p>
         </div>
 
         <div className="mt-8 rounded-2xl border border-white/10 bg-black/30 p-5 text-center">
-          <p className="text-sm text-slate-400">Oda Kodu</p>
+          <p className="text-sm text-slate-400">
+            Oda Kodu
+          </p>
+
           <h2 className="mt-2 text-4xl font-bold tracking-widest text-emerald-400">
             {room.code}
           </h2>
+        </div>
+
+        <div className="mt-6">
+          <ScoreBoard
+  players={room.room_players || []}
+  hostScore={room.host_score ?? 0}
+  guestScore={room.guest_score ?? 0}
+/>
         </div>
 
         <GameRenderer
