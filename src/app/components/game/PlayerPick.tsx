@@ -17,6 +17,8 @@ type Pick = {
   team_id: number;
   teams: {
     name: string;
+    display_name: string | null;
+    logo_url: string | null;
   };
   room_players: {
     nickname: string;
@@ -51,10 +53,6 @@ export default function PlayerPick({ room }: { room: any }) {
 
   const isHost = currentPlayer?.is_host === true;
 
-  /*
-   * Aktif round, mevcut oda oyuncusu ve seçilen takımları getirir.
-   * Oyuncuyu nickname yerine player_uuid ile buluyoruz.
-   */
   useEffect(() => {
     async function fetchRoundAndPicks() {
       const playerUuid =
@@ -79,6 +77,7 @@ export default function PlayerPick({ room }: { room: any }) {
           "Room player fetch error:",
           roomPlayerError?.message
         );
+
         setMessage("Oyuncu bilgisi bulunamadı.");
         setMessageType("error");
         return;
@@ -95,7 +94,7 @@ export default function PlayerPick({ room }: { room: any }) {
         setRoundId(round.id);
 
         const data = await getRoundPicks(round.id);
-        setPicks(data || []);
+        setPicks((data || []) as Pick[]);
       } catch (error) {
         console.error("Round data fetch error:", error);
         setMessage("Round bilgileri yüklenemedi.");
@@ -106,10 +105,6 @@ export default function PlayerPick({ room }: { room: any }) {
     fetchRoundAndPicks();
   }, [room.id, room.round_number]);
 
-  /*
-   * İki cihazda da sunucudaki round_ends_at değerine göre
-   * senkron geri sayım çalıştırır.
-   */
   useEffect(() => {
     if (!room.round_ends_at) return;
 
@@ -127,9 +122,6 @@ export default function PlayerPick({ room }: { room: any }) {
     return () => window.clearInterval(interval);
   }, [room.round_ends_at]);
 
-  /*
-   * Süre dolduğunda yalnızca host round'u beraberlik olarak bitirir.
-   */
   useEffect(() => {
     if (timeLeft !== 0) return;
     if (!isHost) return;
@@ -150,14 +142,13 @@ export default function PlayerPick({ room }: { room: any }) {
         .maybeSingle();
 
       if (roundError) {
-        console.error("Draw round finish error:", roundError.message);
+        console.error(
+          "Draw round finish error:",
+          roundError.message
+        );
         return;
       }
 
-      /*
-       * Round daha önce başka bir işlemle bitmişse
-       * room state'ini tekrar değiştirmiyoruz.
-       */
       if (!finishedRound) return;
 
       const { error: roomError } = await supabase
@@ -170,17 +161,16 @@ export default function PlayerPick({ room }: { room: any }) {
         .eq("game_state", "answering");
 
       if (roomError) {
-        console.error("Draw room update error:", roomError.message);
+        console.error(
+          "Draw room update error:",
+          roomError.message
+        );
       }
     }
 
     finishDrawRound();
   }, [timeLeft, isHost, roundId, room.id]);
 
-  /*
-   * Oyuncu autocomplete.
-   * Bir öneri seçildiğinde tekrar sorgu çalıştırılmaz.
-   */
   useEffect(() => {
     let cancelled = false;
 
@@ -287,7 +277,11 @@ export default function PlayerPick({ room }: { room: any }) {
         return;
       }
 
-      const teamIds = [...new Set(picks.map((pick) => pick.team_id))];
+      const teamIds = [
+        ...new Set(
+          picks.map((pick) => pick.team_id)
+        ),
+      ];
 
       if (teamIds.length < 2) {
         setMessage("Takımlar bulunamadı.");
@@ -331,6 +325,7 @@ export default function PlayerPick({ room }: { room: any }) {
       setSubmitted(true);
     } catch (error) {
       console.error("Answer submit error:", error);
+
       setMessage(
         error instanceof Error
           ? error.message
@@ -353,7 +348,9 @@ export default function PlayerPick({ room }: { room: any }) {
       </h2>
 
       <div className="mt-4">
-        <p className="text-sm text-slate-400">Kalan Süre</p>
+        <p className="text-sm text-slate-400">
+          Kalan Süre
+        </p>
 
         <p
           className={`text-5xl font-bold ${
@@ -367,20 +364,42 @@ export default function PlayerPick({ room }: { room: any }) {
       </div>
 
       <div className="mt-6 grid grid-cols-2 gap-3">
-        {picks.map((pick) => (
-          <div
-            key={pick.id}
-            className="rounded-xl bg-black/30 px-4 py-5"
-          >
-            <p className="text-xs text-slate-400">
-              {pick.room_players.is_host ? "Host" : "Guest"}
-            </p>
+        {picks.map((pick) => {
+          const teamName =
+            pick.teams.display_name ||
+            pick.teams.name;
 
-            <p className="mt-2 text-lg font-bold text-emerald-400">
-              {pick.teams.name}
-            </p>
-          </div>
-        ))}
+          return (
+            <div
+              key={pick.id}
+              className="rounded-2xl border border-white/10 bg-black/30 px-3 py-5"
+            >
+              <p className="text-xs text-slate-400">
+                {pick.room_players.is_host
+                  ? "Host"
+                  : "Guest"}
+              </p>
+
+              <div className="mt-3 flex flex-col items-center gap-2">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10">
+                  {pick.teams.logo_url ? (
+                    <img
+                      src={pick.teams.logo_url}
+                      alt={teamName}
+                      className="h-11 w-11 object-contain"
+                    />
+                  ) : (
+                    <span className="text-2xl">⚽</span>
+                  )}
+                </div>
+
+                <p className="text-base font-bold leading-tight text-emerald-400">
+                  {teamName}
+                </p>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {message && (
@@ -406,7 +425,7 @@ export default function PlayerPick({ room }: { room: any }) {
       ) : (
         <>
           <input
-            className="mt-6 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none focus:border-emerald-400"
+            className="mt-6 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none focus:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
             placeholder="Futbolcu ara..."
             value={answer}
             disabled={submitting || timeLeft <= 0}
@@ -448,7 +467,9 @@ export default function PlayerPick({ room }: { room: any }) {
             }
             className="mt-4 w-full rounded-xl bg-emerald-500 px-4 py-3 font-semibold text-black transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {submitting ? "Kontrol ediliyor..." : "Cevapla"}
+            {submitting
+              ? "Kontrol ediliyor..."
+              : "Cevapla"}
           </button>
         </>
       )}

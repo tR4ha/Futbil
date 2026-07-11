@@ -22,7 +22,11 @@ export async function getRoundPicks(roundId: string) {
     .select(`
       *,
       teams (
-        name
+        name,
+
+        display_name,
+
+        logo_url
       ),
       room_players (
         id,

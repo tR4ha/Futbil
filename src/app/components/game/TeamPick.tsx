@@ -7,9 +7,16 @@ import ScoreBoard from "./ScoreBoard";
 
 type Team = {
   id: number;
+
   name: string;
+
+  display_name: string | null;
+
   search_name: string;
+
   type: string;
+
+  logo_url: string | null;
 };
 
 export default function TeamPick({ room }: { room: any }) {
@@ -38,7 +45,7 @@ export default function TeamPick({ room }: { room: any }) {
 
     const { data, error } = await supabase
       .from("teams")
-      .select("id, name, search_name, type")
+      .select("id, name, display_name, search_name, type, logo_url")
       .ilike("search_name", `%${cleanValue}%`)
       .order("name")
       .limit(10);
@@ -162,58 +169,92 @@ export default function TeamPick({ room }: { room: any }) {
   }
 
   return (
-    <div className="mt-8 text-center">
-      <ScoreBoard players={room.room_players || []} />
+  <div className="mt-8 text-center">
+    <ScoreBoard players={room.room_players || []} />
 
-      <p className="mt-5 text-sm font-semibold uppercase tracking-wider text-emerald-400">
-        Round {room.round_number}
-      </p>
+    <p className="mt-5 text-sm font-semibold uppercase tracking-wider text-emerald-400">
+      Round {room.round_number}
+    </p>
 
-      <h2 className="mt-3 text-3xl font-bold">Takımını Seç</h2>
+    <h2 className="mt-3 text-3xl font-bold">Takımını Seç</h2>
 
-      {message && (
-        <div className="mt-4 rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-300">
-          {message}
-        </div>
-      )}
+    {message && (
+      <div className="mt-4 rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-300">
+        {message}
+      </div>
+    )}
 
-      {selectedTeam ? (
-        <div className="mt-6 rounded-xl bg-black/30 px-4 py-4">
-          <p className="text-slate-400">Seçimin</p>
+    {selectedTeam ? (
+      <div className="mt-6 rounded-xl bg-black/30 px-4 py-5">
+        <p className="text-slate-400">Seçimin</p>
 
-          <p className="mt-1 text-2xl font-bold text-emerald-400">
-            {selectedTeam.name}
-          </p>
-
-          <p className="mt-3 text-sm text-slate-400">
-            Rakip bekleniyor...
-          </p>
-        </div>
-      ) : (
-        <>
-          <input
-            className="mt-6 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none focus:border-emerald-400"
-            placeholder="Takım ara..."
-            value={query}
-            onChange={(e) => searchTeams(e.target.value)}
-            autoComplete="off"
-          />
-
-          <div className="mt-4 max-h-72 space-y-2 overflow-y-auto">
-            {teams.map((team) => (
-              <button
-                key={team.id}
-                type="button"
-                disabled={loading}
-                onClick={() => pickTeam(team)}
-                className="w-full rounded-xl bg-black/30 px-4 py-3 text-left transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {team.name}
-              </button>
-            ))}
+        <div className="mt-3 flex items-center justify-center gap-3">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white/10">
+            {selectedTeam.logo_url ? (
+              <img
+                src={selectedTeam.logo_url}
+                alt={selectedTeam.display_name || selectedTeam.name}
+                className="h-11 w-11 object-contain"
+              />
+            ) : (
+              <span className="text-2xl">⚽</span>
+            )}
           </div>
-        </>
-      )}
-    </div>
-  );
+
+          <p className="text-2xl font-bold text-emerald-400">
+            {selectedTeam.display_name || selectedTeam.name}
+          </p>
+        </div>
+
+        <p className="mt-4 text-sm text-slate-400">
+          Rakip bekleniyor...
+        </p>
+      </div>
+    ) : (
+      <>
+        <input
+          className="mt-6 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none focus:border-emerald-400"
+          placeholder="Takım ara..."
+          value={query}
+          onChange={(event) => searchTeams(event.target.value)}
+          autoComplete="off"
+        />
+
+        <div className="mt-4 max-h-72 space-y-2 overflow-y-auto">
+          {teams.map((team) => (
+            <button
+              key={team.id}
+              type="button"
+              disabled={loading}
+              onClick={() => pickTeam(team)}
+              className="flex w-full items-center gap-3 rounded-xl bg-black/30 px-4 py-3 text-left transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10">
+                {team.logo_url ? (
+                  <img
+                    src={team.logo_url}
+                    alt={team.display_name || team.name}
+                    className="h-8 w-8 object-contain"
+                  />
+                ) : (
+                  <span>⚽</span>
+                )}
+              </div>
+
+              <span className="font-semibold">
+                {team.display_name || team.name}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {query.trim() && teams.length === 0 && !loading && (
+          <p className="mt-4 text-sm text-slate-400">
+            Takım bulunamadı.
+          </p>
+        )}
+      </>
+    )}
+  </div>
+);
 }
