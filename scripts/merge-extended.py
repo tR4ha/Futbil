@@ -215,6 +215,8 @@ for row in read_csv(TEAM_DETAILS_FILE):
 
     if not club_id or not club_name:
         continue
+    if is_youth_or_reserve_team(club_name):
+        continue
 
     if normalize(club_name) in INVALID_TEAM_NAMES:
         continue

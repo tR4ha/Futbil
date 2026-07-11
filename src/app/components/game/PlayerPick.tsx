@@ -222,139 +222,148 @@ setPicks(formattedPicks);
     };
   }, [answer, selectedPlayerId]);
 
-  async function handleSubmitAnswer() {
-    if (submitting || submitted) return;
+  async function submitAnswer(
+  playerId: string,
+  playerName: string
+) {
+  if (submitting || submitted) return;
 
-    setMessage("");
+  setMessage("");
 
-    if (!answer.trim()) {
-      setMessage("Cevap yaz.");
-      setMessageType("error");
-      return;
-    }
+  if (!roundId) {
+    setMessage("Round bulunamadı.");
+    setMessageType("error");
+    return;
+  }
 
-    if (!selectedPlayerId) {
-      setMessage("Futbolcuyu öneri listesinden seç.");
-      setMessageType("error");
-      return;
-    }
+  if (!roomPlayerId) {
+    setMessage("Oyuncu bilgisi bulunamadı.");
+    setMessageType("error");
+    return;
+  }
 
-    if (!roundId) {
+  if (timeLeft <= 0) {
+    setMessage("Süre doldu.");
+    setMessageType("info");
+    return;
+  }
+
+  setSubmitting(true);
+
+  try {
+    const normalizedAnswer = playerName.trim();
+
+    const nickname =
+      window.localStorage.getItem("futbil_nickname") ||
+      "Unknown";
+
+    const { data: currentRound, error: currentRoundError } =
+      await supabase
+        .from("rounds")
+        .select(
+          "id, status, winner_nickname, winner_room_player_id"
+        )
+        .eq("id", roundId)
+        .single();
+
+    if (currentRoundError || !currentRound) {
       setMessage("Round bulunamadı.");
       setMessageType("error");
       return;
     }
 
-    if (!roomPlayerId) {
-      setMessage("Oyuncu bilgisi bulunamadı.");
+    if (currentRound.status === "finished") {
+      setMessage(
+        currentRound.winner_nickname
+          ? `Round bitti. Kazanan: ${currentRound.winner_nickname}`
+          : "Round bitti. Berabere."
+      );
+      setMessageType("info");
+      setSubmitted(true);
+      return;
+    }
+
+    const teamIds = [
+      ...new Set(picks.map((pick) => pick.team_id)),
+    ];
+
+    if (teamIds.length < 2) {
+      setMessage("Takımlar bulunamadı.");
       setMessageType("error");
       return;
     }
 
-    if (timeLeft <= 0) {
-      setMessage("Süre doldu.");
-      setMessageType("info");
+    const isCorrect = await validatePlayer(
+      playerId,
+      teamIds
+    );
+
+    await saveAnswer({
+      roundId,
+      roomPlayerId,
+      nickname,
+      answer: normalizedAnswer,
+    });
+
+    if (!isCorrect) {
+      setMessage("Yanlış cevap.");
+      setMessageType("error");
+      setSubmitted(true);
       return;
     }
 
-    setSubmitting(true);
+    const finishedRound = await finishRound({
+      roundId,
+      roomPlayerId,
+      playerId,
+      nickname,
+      answer: normalizedAnswer,
+    });
 
-    try {
-      const normalizedAnswer = answer.trim();
-      const nickname =
-        window.localStorage.getItem("futbil_nickname") || "Unknown";
+    if (!finishedRound) {
+      setMessage("Rakibin senden önce doğru cevap verdi.");
+      setMessageType("info");
+      setSubmitted(true);
+      return;
+    }
 
-      const { data: currentRound, error: currentRoundError } =
-        await supabase
-          .from("rounds")
-          .select(
-            "id, status, winner_nickname, winner_room_player_id"
-          )
-          .eq("id", roundId)
-          .single();
+    await increaseScore({
+      roomId: room.id,
+      isHost: currentPlayer?.is_host === true,
+    });
 
-      if (currentRoundError || !currentRound) {
-        setMessage("Round bulunamadı.");
-        setMessageType("error");
-        return;
-      }
+    setMessage("Doğru cevap! Round kazandın.");
+    setMessageType("success");
+    setSubmitted(true);
+  } catch (error) {
+    console.error("Answer submit error:", error);
 
-      if (currentRound.status === "finished") {
-        setMessage(
-          currentRound.winner_nickname
-            ? `Round bitti. Kazanan: ${currentRound.winner_nickname}`
-            : "Round bitti. Berabere."
-        );
-        setMessageType("info");
-        return;
-      }
-
-      const teamIds = [
-        ...new Set(
-          picks.map((pick) => pick.team_id)
-        ),
-      ];
-
-      if (teamIds.length < 2) {
-        setMessage("Takımlar bulunamadı.");
-        setMessageType("error");
-        return;
-      }
-
-      const isCorrect = await validatePlayer(
-        selectedPlayerId,
-        teamIds
-      );
-
-      await saveAnswer({
-        roundId,
-        roomPlayerId,
-        nickname,
-        answer: normalizedAnswer,
-      });
-
-      if (!isCorrect) {
-        setMessage("Yanlış cevap.");
-        setMessageType("error");
-        setSubmitted(true);
-        return;
-      }
-const finishedRound = await finishRound({
-  roundId,
-  roomPlayerId,
-  playerId: selectedPlayerId,
-  nickname,
-  answer: normalizedAnswer,
-});
-
-if (!finishedRound) {
-  setMessage("Rakibin senden önce doğru cevap verdi.");
-  setMessageType("info");
-  setSubmitted(true);
-  return;
+    setMessage(
+      error instanceof Error
+        ? error.message
+        : "Cevap gönderilemedi."
+    );
+    setMessageType("error");
+  } finally {
+    setSubmitting(false);
+  }
 }
 
-await increaseScore({
-  roomId: room.id,
-  isHost: currentPlayer?.is_host === true,
-});
-
-      setMessage("Doğru cevap! Round kazandın.");
-      setMessageType("success");
-      setSubmitted(true);
-    } catch (error) {
-      console.error("Answer submit error:", error);
-
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Cevap gönderilemedi."
-      );
-      setMessageType("error");
-    } finally {
-      setSubmitting(false);
-    }
+async function handleSubmitAnswer() {
+  if (!answer.trim()) {
+    setMessage("Cevap yaz.");
+    setMessageType("error");
+    return;
   }
+
+  if (!selectedPlayerId) {
+    setMessage("Futbolcuyu öneri listesinden seç.");
+    setMessageType("error");
+    return;
+  }
+
+  await submitAnswer(selectedPlayerId, answer);
+}
 
   return (
     <div className="mt-8 text-center">
@@ -463,11 +472,13 @@ await increaseScore({
   key={player.id}
   type="button"
   onClick={() => {
-    setSelectedPlayerId(player.id);
-    setAnswer(player.name);
-    setSuggestions([]);
-    setMessage("");
-  }}
+  setSelectedPlayerId(player.id);
+  setAnswer(player.name);
+  setSuggestions([]);
+  setMessage("");
+
+  void submitAnswer(player.id, player.name);
+}}
   className="block w-full border-b border-white/5 px-4 py-3 text-left transition last:border-b-0 hover:bg-white/10"
 >
   <div className="flex items-center gap-3">

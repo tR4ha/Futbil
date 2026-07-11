@@ -1,12 +1,21 @@
 import { supabase } from "@/lib/supabase";
-import { getPlayerId, setNickname } from "@/services/session.service";
+import {
+  getPlayerId,
+  setNickname,
+} from "@/services/session.service";
+
+type TargetWins = 3 | 5 | 7;
 
 function generateRoomCode(length = 6) {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const chars =
+    "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
   let code = "";
 
-  for (let i = 0; i < length; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  for (let index = 0; index < length; index++) {
+    code += chars.charAt(
+      Math.floor(Math.random() * chars.length)
+    );
   }
 
   return code;
@@ -14,30 +23,35 @@ function generateRoomCode(length = 6) {
 
 export async function createRoom(
   nickname: string,
-  bestOf: 3 | 5 | 7 = 3
+  targetWins: TargetWins = 3
 ) {
   const code = generateRoomCode();
   const playerId = getPlayerId();
 
   setNickname(nickname);
 
-  const { data: room, error: roomError } = await supabase
-    .from("rooms")
-    .insert({
-      code,
-      status: "waiting",
-      game_state: "waiting",
-      round_number: 1,
-      host_score: 0,
-      guest_score: 0,
-      round_ends_at: null,
-      best_of: bestOf,
-    })
-    .select()
-    .single();
+  const { data: room, error: roomError } =
+    await supabase
+      .from("rooms")
+      .insert({
+        code,
+        status: "waiting",
+        game_state: "waiting",
+        round_number: 1,
+        host_score: 0,
+        guest_score: 0,
+        round_ends_at: null,
+        best_of: targetWins,
+      })
+      .select()
+      .single();
 
   if (roomError) {
-    console.error("Room create error:", roomError.message);
+    console.error(
+      "Room create error:",
+      roomError.message
+    );
+
     throw roomError;
   }
 
@@ -51,24 +65,32 @@ export async function createRoom(
     });
 
   if (playerError) {
-    console.error("Room player create error:", playerError.message);
+    console.error(
+      "Room player create error:",
+      playerError.message
+    );
+
     throw playerError;
   }
 
   return room;
 }
 
-export async function joinRoom(code: string, nickname: string) {
+export async function joinRoom(
+  code: string,
+  nickname: string
+) {
   const cleanCode = code.trim().toUpperCase();
   const playerId = getPlayerId();
 
   setNickname(nickname);
 
-  const { data: room, error: roomError } = await supabase
-    .from("rooms")
-    .select("*")
-    .eq("code", cleanCode)
-    .single();
+  const { data: room, error: roomError } =
+    await supabase
+      .from("rooms")
+      .select("*")
+      .eq("code", cleanCode)
+      .single();
 
   if (roomError || !room) {
     throw new Error("Oda bulunamadı.");
@@ -76,7 +98,10 @@ export async function joinRoom(code: string, nickname: string) {
 
   const { count } = await supabase
     .from("room_players")
-    .select("*", { count: "exact", head: true })
+    .select("*", {
+      count: "exact",
+      head: true,
+    })
     .eq("room_id", room.id);
 
   if ((count ?? 0) >= 2) {
@@ -93,17 +118,26 @@ export async function joinRoom(code: string, nickname: string) {
     });
 
   if (playerError) {
-    console.error("Join player error:", playerError.message);
+    console.error(
+      "Join player error:",
+      playerError.message
+    );
+
     throw playerError;
   }
 
   const { error: readyError } = await supabase
     .from("rooms")
-    .update({ status: "ready" })
+    .update({
+      status: "ready",
+    })
     .eq("id", room.id);
 
   if (readyError) {
-    console.error("Room ready error:", readyError.message);
+    console.error(
+      "Room ready error:",
+      readyError.message
+    );
   }
 
   return room;

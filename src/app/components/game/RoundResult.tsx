@@ -24,8 +24,13 @@ type RoundData = {
   winner_room_player: WinnerRoomPlayer | null;
 };
 
-export default function RoundResult({ room }: { room: any }) {
-  const [round, setRound] = useState<RoundData | null>(null);
+export default function RoundResult({
+  room,
+}: {
+  room: any;
+}) {
+  const [round, setRound] =
+    useState<RoundData | null>(null);
 
   const hostPlayer = room.room_players?.find(
     (player: any) => player.is_host === true
@@ -33,10 +38,13 @@ export default function RoundResult({ room }: { room: any }) {
 
   const localPlayerId =
     typeof window !== "undefined"
-      ? window.localStorage.getItem("futbil_player_id")
+      ? window.localStorage.getItem(
+          "futbil_player_id"
+        )
       : null;
 
-  const isHost = hostPlayer?.player_uuid === localPlayerId;
+  const isHost =
+    hostPlayer?.player_uuid === localPlayerId;
 
   useEffect(() => {
     async function fetchRound() {
@@ -59,19 +67,29 @@ export default function RoundResult({ room }: { room: any }) {
           )
         `)
         .eq("room_id", room.id)
-        .eq("round_number", room.round_number)
+        .eq(
+          "round_number",
+          room.round_number
+        )
         .single();
 
       if (error) {
-        console.error("Round result fetch error:", error.message);
+        console.error(
+          "Round result fetch error:",
+          error.message
+        );
         return;
       }
 
-      const winnerPlayer = Array.isArray(data.winner_player)
+      const winnerPlayer = Array.isArray(
+        data.winner_player
+      )
         ? data.winner_player[0] ?? null
         : data.winner_player;
 
-      const winnerRoomPlayer = Array.isArray(data.winner_room_player)
+      const winnerRoomPlayer = Array.isArray(
+        data.winner_room_player
+      )
         ? data.winner_room_player[0] ?? null
         : data.winner_room_player;
 
@@ -88,79 +106,94 @@ export default function RoundResult({ room }: { room: any }) {
   useEffect(() => {
     if (!isHost) return;
 
-    const timer = window.setTimeout(async () => {
-      const winsNeeded = Math.ceil((room.best_of ?? 3) / 2);
+    const timer = window.setTimeout(
+      async () => {
+        const winsNeeded =
+          room.best_of ?? 3;
 
-      const matchFinished =
-        room.host_score >= winsNeeded ||
-        room.guest_score >= winsNeeded;
+        const matchFinished =
+          room.host_score >= winsNeeded ||
+          room.guest_score >= winsNeeded;
 
-      if (matchFinished) {
-        const { error } = await supabase
-          .from("rooms")
-          .update({
-            game_state: "match_result",
-            round_ends_at: null,
-          })
-          .eq("id", room.id)
-          .eq("game_state", "round_result");
+        if (matchFinished) {
+          const { error } = await supabase
+            .from("rooms")
+            .update({
+              game_state: "match_result",
+              round_ends_at: null,
+            })
+            .eq("id", room.id)
+            .eq(
+              "game_state",
+              "round_result"
+            );
 
-        if (error) {
-          console.error(
-            "Match result state error:",
-            error.message
-          );
+          if (error) {
+            console.error(
+              "Match result state error:",
+              error.message
+            );
+          }
+
+          return;
         }
 
-        return;
-      }
+        const nextRound =
+          room.round_number + 1;
 
-      const nextRound = room.round_number + 1;
+        const { error: roundError } =
+          await supabase
+            .from("rounds")
+            .upsert(
+              {
+                room_id: room.id,
+                round_number: nextRound,
+                status: "active",
+                winner_room_player_id: null,
+                winning_player_id: null,
+                winner_nickname: null,
+                winning_answer: null,
+              },
+              {
+                onConflict:
+                  "room_id,round_number",
+              }
+            );
 
-      const { error: roundError } = await supabase
-        .from("rounds")
-        .upsert(
-          {
-            room_id: room.id,
-            round_number: nextRound,
-            status: "active",
-            winner_room_player_id: null,
-            winning_player_id: null,
-            winner_nickname: null,
-            winning_answer: null,
-          },
-          {
-            onConflict: "room_id,round_number",
-          }
-        );
+        if (roundError) {
+          console.error(
+            "Next round create error:",
+            roundError.message
+          );
+          return;
+        }
 
-      if (roundError) {
-        console.error(
-          "Next round create error:",
-          roundError.message
-        );
-        return;
-      }
+        const { error: roomError } =
+          await supabase
+            .from("rooms")
+            .update({
+              round_number: nextRound,
+              game_state: "team_pick",
+              round_ends_at: null,
+            })
+            .eq("id", room.id)
+            .eq(
+              "game_state",
+              "round_result"
+            );
 
-      const { error: roomError } = await supabase
-        .from("rooms")
-        .update({
-          round_number: nextRound,
-          game_state: "team_pick",
-          round_ends_at: null,
-        })
-        .eq("id", room.id)
-        .eq("game_state", "round_result");
+        if (roomError) {
+          console.error(
+            "Room update error:",
+            roomError.message
+          );
+        }
+      },
+      3000
+    );
 
-      if (roomError) {
-        console.error(
-          "Room update error:",
-          roomError.message
-        );
-      }
-    }, 3000);
-
-    return () => window.clearTimeout(timer);
+    return () =>
+      window.clearTimeout(timer);
   }, [
     isHost,
     room.id,
@@ -174,7 +207,8 @@ export default function RoundResult({ room }: { room: any }) {
     round?.winner_room_player?.nickname ||
     round?.winner_nickname;
 
-  const isDraw = !round?.winner_room_player_id;
+  const isDraw =
+    !round?.winner_room_player_id;
 
   return (
     <div className="mt-8 text-center">
@@ -185,15 +219,21 @@ export default function RoundResult({ room }: { room: any }) {
       <h2 className="mt-3 text-3xl font-bold">
         {isDraw
           ? "🤝 Berabere"
-          : `🏆 ${winnerNickname || "Kazanan"}`}
+          : `🏆 ${
+              winnerNickname || "Kazanan"
+            }`}
       </h2>
 
       {round?.winning_answer && (
         <div className="mt-6 flex items-center gap-4 rounded-2xl border border-white/10 bg-black/30 p-4 text-left">
           <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/10">
-            {round.winner_player?.image_url ? (
+            {round.winner_player
+              ?.image_url ? (
               <img
-                src={round.winner_player.image_url}
+                src={
+                  round.winner_player
+                    .image_url
+                }
                 alt={
                   round.winner_player.name ||
                   round.winning_answer
@@ -201,7 +241,9 @@ export default function RoundResult({ room }: { room: any }) {
                 className="h-full w-full object-cover"
               />
             ) : (
-              <span className="text-3xl">👤</span>
+              <span className="text-3xl">
+                👤
+              </span>
             )}
           </div>
 

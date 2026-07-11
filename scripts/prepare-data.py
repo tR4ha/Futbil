@@ -1,7 +1,9 @@
+import re
 import csv
 import os
 import unicodedata
 from collections import defaultdict
+
 
 RAW = "data/raw"
 OUT = "data/processed"
@@ -21,7 +23,31 @@ def normalize(text: str) -> str:
     )
 
     return original if ascii_text == original else f"{original} {ascii_text}"
+def is_youth_or_reserve_team(name: str) -> bool:
+    if not name:
+        return False
 
+    normalized = (
+        unicodedata.normalize("NFKD", name.lower())
+        .encode("ascii", "ignore")
+        .decode("ascii")
+    )
+
+    pattern = (
+        r"(?:^|\s)"
+        r"(?:"
+        r"u[-\s]?(?:17|18|19|20|21|23)"
+        r"|under[-\s]?(?:17|18|19|20|21|23)"
+        r"|youth"
+        r"|academy"
+        r"|reserves?"
+        r"|ii"
+        r"|b"
+        r")"
+        r"(?:\s|$)"
+    )
+
+    return bool(re.search(pattern, normalized))
 
 def load_csv(path: str):
     with open(path, newline="", encoding="utf-8") as file:
@@ -149,6 +175,8 @@ with open(
         name = row.get("name", "").strip()
 
         if not club_id or not name:
+            continue
+        if is_youth_or_reserve_team(name):
             continue
 
         competition_id = row.get(

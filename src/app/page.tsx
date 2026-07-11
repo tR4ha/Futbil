@@ -2,14 +2,18 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createRoom, joinRoom } from "@/services/room.service";
+import {
+  createRoom,
+  joinRoom,
+} from "@/services/room.service";
 
-type BestOf = 3 | 5 | 7;
+type TargetWins = 3 | 5 | 7;
 
 export default function Home() {
   const [nickname, setNickname] = useState("");
   const [roomCode, setRoomCode] = useState("");
-  const [bestOf, setBestOf] = useState<BestOf>(3);
+  const [targetWins, setTargetWins] =
+    useState<TargetWins>(3);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -25,15 +29,21 @@ export default function Home() {
     setMessage("");
 
     try {
-      const room = await createRoom(nickname.trim(), bestOf);
+      const room = await createRoom(
+        nickname.trim(),
+        targetWins
+      );
+
       router.push(`/room/${room.code}`);
     } catch (error) {
       console.error(error);
+
       setMessage(
         error instanceof Error
           ? error.message
           : "Oda oluşturulamadı."
       );
+
       setLoading(false);
     }
   }
@@ -53,15 +63,21 @@ export default function Home() {
     setMessage("");
 
     try {
-      const room = await joinRoom(roomCode, nickname.trim());
+      const room = await joinRoom(
+        roomCode,
+        nickname.trim()
+      );
+
       router.push(`/room/${room.code}`);
     } catch (error) {
       console.error(error);
+
       setMessage(
         error instanceof Error
           ? error.message
           : "Odaya katılınamadı."
       );
+
       setLoading(false);
     }
   }
@@ -70,7 +86,9 @@ export default function Home() {
     <main className="flex min-h-screen items-center justify-center px-6 py-10">
       <section className="w-full max-w-md rounded-3xl border border-white/10 bg-white/10 p-8 shadow-2xl backdrop-blur">
         <div className="mb-8 text-center">
-          <h1 className="text-4xl font-bold">⚽ FutBil</h1>
+          <h1 className="text-4xl font-bold">
+            ⚽ FutBil
+          </h1>
 
           <p className="mt-2 text-sm text-slate-300">
             Find the common football player
@@ -99,24 +117,28 @@ export default function Home() {
         />
 
         <label className="mt-5 block text-sm text-slate-300">
-          Maç Formatı
+          Kazanma Hedefi
         </label>
 
         <div className="mt-2 grid grid-cols-3 gap-2">
-          {[3, 5, 7].map((value) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setBestOf(value as BestOf)}
-              className={`rounded-xl px-3 py-3 text-sm font-semibold transition ${
-                bestOf === value
-                  ? "bg-emerald-500 text-black"
-                  : "bg-black/30 text-slate-300 hover:bg-white/10"
-              }`}
-            >
-              Best of {value}
-            </button>
-          ))}
+          {([3, 5, 7] as TargetWins[]).map(
+            (value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() =>
+                  setTargetWins(value)
+                }
+                className={`rounded-xl px-2 py-3 text-sm font-semibold transition ${
+                  targetWins === value
+                    ? "bg-emerald-500 text-black"
+                    : "bg-black/30 text-slate-300 hover:bg-white/10"
+                }`}
+              >
+                {value} Olan Kazanır
+              </button>
+            )
+          )}
         </div>
 
         <button
@@ -125,7 +147,9 @@ export default function Home() {
           disabled={loading}
           className="mt-5 w-full rounded-xl bg-emerald-500 px-4 py-3 font-semibold text-black transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {loading ? "İşleniyor..." : "Oda Oluştur"}
+          {loading
+            ? "İşleniyor..."
+            : "Oda Oluştur"}
         </button>
 
         <div className="my-6 flex items-center gap-3 text-xs text-slate-400">
@@ -143,7 +167,9 @@ export default function Home() {
           placeholder="Room code..."
           value={roomCode}
           onChange={(event) => {
-            setRoomCode(event.target.value.toUpperCase());
+            setRoomCode(
+              event.target.value.toUpperCase()
+            );
             setMessage("");
           }}
           autoComplete="off"
@@ -155,7 +181,9 @@ export default function Home() {
           disabled={loading}
           className="mt-5 w-full rounded-xl bg-blue-500 px-4 py-3 font-semibold text-white transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {loading ? "İşleniyor..." : "Odaya Katıl"}
+          {loading
+            ? "İşleniyor..."
+            : "Odaya Katıl"}
         </button>
       </section>
     </main>

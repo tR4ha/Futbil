@@ -158,6 +158,7 @@ export default function RoomClient({ initialRoom }: Props) {
     const timer = window.setTimeout(() => {
       setCountdown((previous) => {
         if (previous === null) return null;
+
         return Math.max(0, previous - 1);
       });
     }, 1000);
@@ -176,36 +177,50 @@ export default function RoomClient({ initialRoom }: Props) {
       ? "countdown"
       : room.game_state;
 
+  const showRoomInfo =
+    rendererState === "waiting" ||
+    rendererState === "countdown";
+
+  const showScoreBoard =
+    !showRoomInfo &&
+    room.room_players?.length >= 2;
+
   return (
     <main className="flex min-h-screen items-center justify-center px-6 py-10">
       <section className="w-full max-w-md rounded-3xl border border-white/10 bg-white/10 p-8 shadow-2xl backdrop-blur">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold">
-            ⚽ FutBil
-          </h1>
+        {showRoomInfo && (
+          <>
+            <div className="text-center">
+              <h1 className="text-4xl font-bold">
+                ⚽ FutBil
+              </h1>
 
-          <p className="mt-2 text-sm text-slate-300">
-            Oda kodunu arkadaşınla paylaş
-          </p>
-        </div>
+              <p className="mt-2 text-sm text-slate-300">
+                Oda kodunu arkadaşınla paylaş
+              </p>
+            </div>
 
-        <div className="mt-8 rounded-2xl border border-white/10 bg-black/30 p-5 text-center">
-          <p className="text-sm text-slate-400">
-            Oda Kodu
-          </p>
+            <div className="mt-8 rounded-2xl border border-white/10 bg-black/30 p-5 text-center">
+              <p className="text-sm text-slate-400">
+                Oda Kodu
+              </p>
 
-          <h2 className="mt-2 text-4xl font-bold tracking-widest text-emerald-400">
-            {room.code}
-          </h2>
-        </div>
+              <h2 className="mt-2 text-4xl font-bold tracking-widest text-emerald-400">
+                {room.code}
+              </h2>
+            </div>
+          </>
+        )}
 
-        <div className="mt-6">
-          <ScoreBoard
-  players={room.room_players || []}
-  hostScore={room.host_score ?? 0}
-  guestScore={room.guest_score ?? 0}
-/>
-        </div>
+        {showScoreBoard && (
+          <div className="mt-2">
+            <ScoreBoard
+              players={room.room_players || []}
+              hostScore={room.host_score ?? 0}
+              guestScore={room.guest_score ?? 0}
+            />
+          </div>
+        )}
 
         <GameRenderer
           room={{
